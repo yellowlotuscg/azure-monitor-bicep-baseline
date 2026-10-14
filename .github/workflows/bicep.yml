@@ -1,0 +1,38 @@
+name: Bicep
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+# Compile and lint only. Do not add azure/login, az login, OIDC id-token
+# permission, or any deployment step.
+permissions:
+  contents: read
+
+jobs:
+  bicep:
+    name: Build and lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Bicep CLI
+        run: |
+          version="v0.48.1"
+          expected="b09ec25a9d376c1f8e33ede6ed22b587f915ad68488d5db77a6f9541748c7f6e"
+          curl -fsSL -o bicep "https://github.com/Azure/bicep/releases/download/${version}/bicep-linux-x64"
+          echo "${expected}  bicep" | sha256sum -c -
+          chmod +x bicep
+          sudo mv bicep /usr/local/bin/bicep
+          bicep --version
+
+      - name: Structural lint
+        run: python3 scripts/lint_bicep.py --self-test
+
+      - name: Compile main.bicep
+        run: |
+          bicep build main.bicep --outfile "${RUNNER_TEMP}/main.json"
+          test -s "${RUNNER_TEMP}/main.json"
